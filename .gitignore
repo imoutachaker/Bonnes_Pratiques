@@ -23,6 +23,9 @@ individu_reg.*
 # exclure tous les csv 
 *.csv
 
+#
+secrets.yaml
+
 # RStudio files
 .Rproj.user/
 

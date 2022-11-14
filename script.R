@@ -1,153 +1,194 @@
 rm(list = ls())
-api_token = yaml::read_yaml('secrets.yaml')
 
-# REQUIRED PACKAGES ------------ 
-# INSTALLATION =====
 if (!require("ggplot2")) install.packages("ggplot2")
 if (!require("stringr")) install.packages("stringr")
 if (!require("dplyr")) install.packages("dplyr")
 if (!require("tidyverse")) install.packages("tidyverse")
 if (!require("MASS")) install.packages("MASS")
 
-# CALL PACKAGES ====
+
 library(tidyverse)
 library(dplyr)
-library(MASS)
 library(forcats)
+library(MASS)
 
-#FONCTIONS ====
-decennie_a_partir_annee <- function(ANNEE) {
-  return(ANNEE - ANNEE %%
-           10)
+decennie_a_partir_annee <- function(annee) {
+  return(annee - annee %% 10)
 }
-
-fonction_de_stat_agregee <- function(a, b = "moyenne", ...) {
-  ignoreNA <<- !ignoreNA
-  checkvalue <- F
-  for (x in c("moyenne", "variance", "ecart-type", "sd", "ecart type")) {
-    checkvalue <- (checkvalue | b == x)
-  }
-  if (checkvalue == FALSE) stop("statistique non supportée")
-  
-  if (b == "moyenne") {
-    x <- mean(a, na.rm = ignoreNA, ...)
-  } else if (b == "ecart-type" | b == "sd" | b == "ecart type") {
-    x <- sd(b, na.rm = ignoreNA, ...)
-  } else if (a == "variance") {
-    x <- var(a, na.rm = ignoreNA, ...)
-  }
-  return(x)
-}
-
-# IMPORT DATA ------------ 
-# j'importe les données avec read_csv2 parce que c'est un csv avec des ; et que read_csv attend comme separateur des ,
-df <- readr::read_csv2(
-  "individu_reg.csv",
-  col_names = c("region", "aemm", "aged", "anai", "catl", "cs1", "cs2", "cs3", "couple", "na38", "naf08", "pnai12", "sexe", "surf", "tp", "trans", "ur")
-)
-
-# y a un truc qui va pas avec l'import, je corrige
-colnames(df) <- df[1, ]
-df <- df[2:nrow(df), ]
-
-df2 <- df %>%
-  dplyr::select(region, dept, aemm, aged, anai, catl, cs1, cs2, cs3, couple, na38, naf08, pnai12, sexe, surf, tp, trans, ur)
-print(df2, 20)
-
-# DATA EXPLORATION ------------ 
-## combien de professions ====
-print("Nombre de professions :")
-print(summarise(df2, length(unique(unlist(cs3[!is.na(cs1)])))))
-print("Nombre de professions :''")
-print(summarise(df2, length(unique(unlist(cs3[!is.na(cs2)])))))
-oprint("Nombre de professions :")
-print(summarise(df2, length(unique(unlist(cs3[!is.na(cs3)])))))
-
-print.data.frame <- summarise(group_by(df2, aged), n())
-print(print.data.frame)
-
-
-## PLOTS ===============
-df2 %>%
-  dplyr::select(aged) %>%
-  ggplot(.) +
-  geom_histogram(aes(x = 5 * floor(as.numeric(aged) / 5)), stat = "count")
-
-ggplot(df2[as.numeric(df2$aged) > 50, c(3, 4)], aes(
-  x = as.numeric(aged), # x = as.numeric(aged) - as.numeric(aged) %% 5
-  y = ..density.., fill = factor(decennie_a_partir_annee(as.numeric(aemm)))
-), alpha = 0.2) +
-  geom_histogram() # position = "dodge") + scale_fill_viridis_d()
-
-
-
-# part d'homme dans chaque cohort
-ggplot(df %>% group_by(as.numeric(aged, sexe)) %>% summarise(SH_sexe = n()) %>% group_by(aged) %>% summarise(SH_sexe = SH_sexe / sum(SH_sexe))) %>% filter(sexe == 1) + geom_bar(aes(x = as.numeric(aged), y = SH_sexe), stat = "identity") + geom_point(aes(x = as.numeric(aged), y = SH_sexe), stat = "identity", color = "red") + coord_cartesian(c(0, 100))
-# correction (qu'il faudra retirer)
-# ggplot(
-#   df2 %>% group_by(aged, sexe) %>% summarise(SH_sexe = n()) %>% group_by(aged) %>% mutate(SH_sexe = SH_sexe/sum(SH_sexe)) %>% filter(sexe==1)
-# ) + geom_bar(aes(x = as.numeric(aged), y = SH_sexe), stat="identity") + geom_point(aes(x = as.numeric(aged), y = SH_sexe), stat="identity", color = "red") + coord_cartesian(c(0,100))
-
-
-# stats surf par statut
-df3 <- tibble(df2 |> group_by(couple, surf) %>% summarise(x = n()) %>% group_by(couple) |> mutate(y = 100 * x / sum(x)))
-ggplot(df3) %>%
-  geom_bar(aes(x = surf, y = y, color = couple), stat = "identity", position = "dodge")
-
-# stats trans par statut
-df3 <- tibble(df2 |> group_by(couple, trans) %>% summarise(x = n()) %>% group_by(couple) |> mutate(y = 100 * x / sum(x)))
-p <- ggplot(df3) +
-  geom_bar(aes(x = trans, y = y, color = couple), stat = "identity", position = "dodge")
-
-dir.create("/home/onyxia/formation-bonnes-pratiques-R/output")
-setwd("ome/onyxia/formation-bonnes-pratiques-R/output")
-
-ggsave(p, "p.png")
-
-# DATA TRAITEMENTS -----
-na_recode <- function(base, variable, valeur){
-  base %>%
-    dplyr::mutate(!!rlang::sym(variable) := na_if(!!rlang::sym(variable), valeur))
-}
-
-base = df2
-variable = "na38"
-valeur = "ZZ" 
-na_recode(df2, "na38", "ZZ")
-na_recode(df2, "trans", 'Z')
-na_recode(df2, 'tp', 'ZZ')
-
-df2[endsWith(df2$naf08, "ZZ"), "naf08"] <- NA # attention dans la NAF bcp de codes finissent par Z
-
-str(df2)
-df2[, nrow(df2) - 1] <- factor(df2[, nrow(df2) - 1])
-df2$ur <- factor(df2$ur)
-
-df2$sexe <-
-  factor(df2$sexe, levels = c("Homme", "Femme"), labels = c('0', '1'))
-
-
 # fonction de stat agregee
-ignoreNA <- T
+stats_agregees <- function(a, b = "moyenne",
+                           ...) {
+  match.arg(b,
+            c("moyenne",
+              "variance",
+              "ecart-type",
+              "sd",
+              "ecart type")
+  )
+  
+  switch(a,
+         moyenne = mean(a, ...),
+         variance = var(a, ...),
+         sd(a, ...)
+  )
+  
+}
 
-fonction_de_stat_agregee(rnorm(10))
-fonction_de_stat_agregee(rnorm(10), "cart type")
-fonction_de_stat_agregee(rnorm(10), "ecart type")
-fonction_de_stat_agregee(rnorm(10), "variance")
-
-
-fonction_de_stat_agregee(df %>% filter(sexe == "Homme") %>% mutate(aged = as.numeric(aged)) %>% pull(aged), na.rm = T)
-fonction_de_stat_agregee(df2 %>% filter(sexe == "Femme") %>% mutate(aged = as.numeric(aged)) %>% pull(aged), na.rm = T)
-fonction_de_stat_agregee(df2 %>% filter(sexe == "Homme" & couple == "2") %>% mutate(aged = as.numeric(aged)) %>% pull(aged), na.rm = T)
-fonction_de_stat_agregee(df2 %>% filter(sexe == "Femme" & couple == "2") %>% mutate(aged = as.numeric(aged)) %>% pull(aged), na.rm = T)
+lapply(c('ecart type', 'variance'), stats_agregees)
+stats_agregees(rnorm(10))
+#stats_agregees(rnorm(10), "cart type")
+stats_agregees(rnorm(10), "ecart type")
+stats_agregees(rnorm(10), "variance")
 
 
 
-# MODELISATION ------------
+# IMPORT DONNEES ----------------------------
+
+df2 <- readr::read_csv2(
+  "/home/onyxia/formation-bonnes-pratiques-R/individu_reg.csv",
+  col_select = c("region", "aemm", "aged", "anai",
+                 "catl", "cs1", "cs2", "cs3", "couple", "na38",
+                 "naf08", "pnai12", "sexe", "surf", "tp", "trans",
+                 "ur"))
+
+# FEATURE ENGINEERING -------------------------
+
+# TRAITEMENT VALEURS MANQUANTES ==================
+
+
+df2[df2$na38 == "ZZ", "na38"] <- NA
+df2[df2$trans == "Z", "trans"] <- NA
+df2[df2$tp == "Z", "tp"] <- NA
+df2[endsWith(df2$naf08, "ZZ"), "naf08"] <- NA
+
+
+# TYPES EN FACTEUR ===================
+
+df2 <- df2 %>%
+  mutate(across(
+    c(-region, -aemm, -aged, -anai),
+    as.factor)
+  )
+
+df2 <- df2 %>%
+  mutate(age = as.numeric(aged))
+
+df2$sexe <- df2$sexe %>%
+  fct_recode(Homme = "1", Femme = "2")
+
+
+# STATISTIQUES DESCRIPTIVES -------------------
+
+# COMPTE PROFESSIONS =================
+
+# combien de professions
+print("Nombre de professions :")
+print(summarise(df2, length(unique(unlist(cs3[!is.na(cs3)])))))
+print("Nombre de professions :")
+print(summarise(df2, length(unique(unlist(cs2[!is.na(cs2)])))))
+print("Nombre de professions :")
+print(summarise(df2, length(unique(unlist(cs1[!is.na(cs1)])))))
+
+
+# STATISTIQUES AGE ======================
+
+summarise(group_by(df2, age), n())
+
+
+df2 %>%
+  dplyr::select(age) %>%
+  ggplot(.) + geom_histogram(aes(x = 5 * floor(age / 5)),
+                             stat = "count")
+
+ggplot(df2[as.numeric(df2$aged) > 50,],
+       aes(x = as.numeric(aged),
+           y = ..density..,
+           fill = factor(decennie_a_partir_annee(as.numeric(aemm)))
+       ),
+       alpha = 0.2) + geom_histogram()
+
+
+
+# part d'homme dans chaque cohorte ===================
+
+temp <- df2 %>%
+  group_by(age, sexe) %>%
+  summarise(SH_sexe = n()) %>%
+  group_by(age) %>%
+  mutate(SH_sexe = SH_sexe / sum(SH_sexe)) %>%
+  dplyr::filter(sexe == "Homme")
+
+ggplot(temp) +
+  geom_bar(aes(x = as.numeric(age),
+               y = SH_sexe), stat = "identity") +
+  geom_point(aes(x = as.numeric(age),
+                 y = SH_sexe), stat = "identity", color = "red") +
+  coord_cartesian(c(0, 100))
+
+
+# stats surf par statut ==================
+
+df3 <- df2 |>
+  group_by(couple, surf) %>%
+  summarise(x = n()) %>%
+  group_by(couple) |>
+  mutate(y = 100 * x / sum(x))
+
+ggplot(df3) +
+  geom_bar(aes(x = surf, y = y, color = couple),
+           stat = "identity", position = "dodge")
+
+# stats trans par statut ===================
+
+df3 <- df2 |>
+  group_by(couple, trans) %>%
+  summarise(x = n()) %>%
+  group_by(couple) |>
+  mutate(y = 100 * x / sum(x))
+
+part_ds_groupe <- function(data, var_grpe, var_interet){
+  df2 |>
+    group_by(!!!syms(c(var_grpe, var_interet))) |> 
+    summarise(share = n()) |>
+    group_by(!!sym(var_grpe)) |>
+    mutate(share / sum(share))
+}
+
+ggplot(df3) + geom_bar(aes(x = trans, y = y, color = couple),
+                       stat = "identity", position = "dodge")
+
+
+# STATS AGREGEES =================
+
+stats_agregees(df2 %>%
+                 filter(sexe == "Homme") %>%
+                 mutate(aged = as.numeric(aged)) %>%
+                 pull(aged), na.rm = TRUE)
+stats_agregees(df2 %>%
+                 filter(sexe == "Femme") %>%
+                 mutate(aged = as.numeric(aged)) %>%
+                 pull(aged), na.rm = TRUE)
+stats_agregees(df2 %>%
+                 filter(sexe == "Homme" & couple == "2") %>%
+                 mutate(aged = as.numeric(aged)) %>%
+                 pull(aged), na.rm = TRUE)
+stats_agregees(df2 %>%
+                 filter(sexe == "Femme" & couple == "2") %>%
+                 mutate(aged = as.numeric(aged)) %>%
+                 pull(aged), na.rm = TRUE)
+
+
+# MODELISATION ----------------------------
+
 
 df3 <- df2 %>%
-  select(surf, cs1, ur, couple, aged) %>%
+  dplyr::select(surf, cs1, ur, couple, age) %>%
   filter(surf != "Z")
-df3[, 1] <- factor(df3$surf, ordered = T)
-df3[, "cs1"] <- factor(df3$cs1)
-polr(surf ~ cs1 + factor(ur), df3 %>% filter(couple == "2" && as.numeric(aged > 40 && aged < 60)))
+
+polr(surf ~ cs1 + factor(ur),
+     df3 %>%
+       filter(
+         couple == 2 &
+           age > 40 &
+           age < 60)
+)
