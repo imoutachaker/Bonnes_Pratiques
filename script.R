@@ -1,4 +1,5 @@
 rm(list = ls())
+api_token = yaml::read_yaml('secrets.yaml')
 
 # REQUIRED PACKAGES ------------ 
 # INSTALLATION =====
@@ -15,6 +16,11 @@ library(MASS)
 library(forcats)
 
 #FONCTIONS ====
+decennie_a_partir_annee <- function(ANNEE) {
+  return(ANNEE - ANNEE %%
+           10)
+}
+
 fonction_de_stat_agregee <- function(a, b = "moyenne", ...) {
   ignoreNA <<- !ignoreNA
   checkvalue <- F
@@ -60,14 +66,10 @@ print(summarise(df2, length(unique(unlist(cs3[!is.na(cs3)])))))
 print.data.frame <- summarise(group_by(df2, aged), n())
 print(print.data.frame)
 
-decennie_a_partir_annee <- function(ANNEE) {
-  return(ANNEE - ANNEE %%
-    10)
-}
 
 ## PLOTS ===============
 df2 %>%
-  select(aged) %>%
+  dplyr::select(aged) %>%
   ggplot(.) +
   geom_histogram(aes(x = 5 * floor(as.numeric(aged) / 5)), stat = "count")
 
@@ -103,30 +105,27 @@ setwd("ome/onyxia/formation-bonnes-pratiques-R/output")
 ggsave(p, "p.png")
 
 # DATA TRAITEMENTS -----
-# recode valeurs manquantes
-# valeursManquantes <- data.frame(colonne = c(""), NBRE = c(NA))
-# for (i in 1:length(colnames(df2))){
-#  x = df2[,i]
-#  j=0
-#  t <-0
-#  for (j in 1:nrow(x)){
-#    if (is.na(pull(x[j,])) == T) t <- t+1
-#  }
-#  data.frame(
-#
-#  )
-# }
-df2[df2$na38 == "ZZ", "na38"] <- NA
-df2[df2$na38 == "Z", "trans"] <- NA
-df2[df2$tp == "Z", "tp"] <- NA
-df2[endsWith(df2$naf08, "Z"), "naf08"] <- NA
+na_recode <- function(base, variable, valeur){
+  base %>%
+    dplyr::mutate(!!rlang::sym(variable) := na_if(!!rlang::sym(variable), valeur))
+}
+
+base = df2
+variable = "na38"
+valeur = "ZZ" 
+na_recode(df2, "na38", "ZZ")
+na_recode(df2, "trans", 'Z')
+na_recode(df2, 'tp', 'ZZ')
+
+df2[endsWith(df2$naf08, "ZZ"), "naf08"] <- NA # attention dans la NAF bcp de codes finissent par Z
 
 str(df2)
 df2[, nrow(df2) - 1] <- factor(df2[, nrow(df2) - 1])
 df2$ur <- factor(df2$ur)
 
 df2$sexe <-
-  fct_recode(df2$sexe, "Homme" = "0", "Femme" = "1")
+  factor(df2$sexe, levels = c("Homme", "Femme"), labels = c('0', '1'))
+
 
 # fonction de stat agregee
 ignoreNA <- T
@@ -142,7 +141,7 @@ fonction_de_stat_agregee(df2 %>% filter(sexe == "Femme") %>% mutate(aged = as.nu
 fonction_de_stat_agregee(df2 %>% filter(sexe == "Homme" & couple == "2") %>% mutate(aged = as.numeric(aged)) %>% pull(aged), na.rm = T)
 fonction_de_stat_agregee(df2 %>% filter(sexe == "Femme" & couple == "2") %>% mutate(aged = as.numeric(aged)) %>% pull(aged), na.rm = T)
 
-api_pwd <- "trotskitueleski$1917"
+
 
 # MODELISATION ------------
 
