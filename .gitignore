@@ -20,6 +20,9 @@
 # ne comit pas les données
 individu_reg.*
 
+# exclure tous les csv 
+*.csv
+
 # RStudio files
 .Rproj.user/
 

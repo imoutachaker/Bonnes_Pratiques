@@ -28,8 +28,8 @@ print(df2, 20)
 # combien de professions
 print("Nombre de professions :")
 print(summarise(df2,length(unique(unlist(cs3[!is.na(cs1)])))))
-print("Nombre de professions :'')
-"print(summarise(df2,length(unique(unlist(cs3[!is.na(cs2)])))))
+print("Nombre de professions :''")
+print(summarise(df2,length(unique(unlist(cs3[!is.na(cs2)])))))
       oprint("Nombre de professions :")
       print(summarise(df2,length(unique(unlist(cs3[!is.na(cs3)])))))
       
